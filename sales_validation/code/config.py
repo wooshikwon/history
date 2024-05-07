@@ -24,7 +24,7 @@ class path_class:
         self.ymd = ymd
 
         # 디렉토리 path
-        self.top_path = '/Users/wooshikwon/Dekstop/work/sales_validation'
+        self.top_path = os.path.expanduser('~/Desktop/work/sales_validation')
         self.raw_path = f'{self.top_path}/data/raw'
         self.preprocessed_path = f'{self.top_path}/data/preprocessed'
         self.result_path = f'{self.top_path}/result'
