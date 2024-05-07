@@ -243,4 +243,39 @@ class making_report:
 
         plt.tight_layout()
         plt.savefig(f'../result/{self.ymd}_201_graph.png')
+    
+    def __call__(self):
+        self.load_data()
+        self.result_101()
+        self.result_102()
+        self.result_103()
+        self.result_201_data()
+        self.result_201_graph()
+
+
+# In[ ]:
+
+
+def path_class(ymd):
+    file_class = config.path_class(ymd)
+    return file_class
+
+# 본 파일(loaddata.py)의 데이터 로드 Class를 선언하고, 실행 함수
+def main(file_class):    
+    run_class = making_report(file_class) #brand는 이 스크립트의 특이 추가 인자
+    run_class()    
+
+# 스크립트 실행함수
+def run(ymd):
+    file_class = path_class(ymd)
+    main(file_class)
+
+# input 입력 조작 및 run 함수 실행
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ymd', type=str, default=datetime.now().strftime('%Y%m%d'))
+    args, unknown = parser.parse_known_args()
+    
+    run(args.ymd)
 
