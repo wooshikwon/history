@@ -2,3 +2,4 @@ sales_validation/data
 sales_validation/result
 sales_validation/code/security.py
 sales_validation/code/__pycache__
+sales_validation/code/packages/__pycache__
