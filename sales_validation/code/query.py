@@ -425,8 +425,8 @@ def market_size_query(mydate):
         ,dvry_platform_cnt as (
         select a.ym
             , a.area_depth1
-            , case when area_depth1 = '세종특별자치시' and area_depth2 = 'nan' then '세종특별자치시'
-                   else area_depth2
+            , case when a.area_depth1 = '세종특별자치시' and a.area_depth2 = 'nan' then '세종특별자치시'
+                   else a.area_depth2
                    end as area_depth2
             , case when d.bm_transaction = 0 then 0 
                         else coalesce(((a.dvry_turnover * b.bm_ratio)/(1-((1- od_ratio.bm_od_ratio)*c.pay_ratio)))/d.bm_transaction*1.0, 0) 

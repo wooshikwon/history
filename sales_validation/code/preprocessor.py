@@ -59,17 +59,21 @@ def load_team_flag(directory, ymd_str):
 class preprocessor:
     def __init__(self, path_class):
         self.path_class = path_class
+        self.raw_path = self.path_class.raw_path
         self.preprocessed_path = self.path_class.preprocessed_path
         self.upload_path = self.path_class.upload_path
         self.ymd = format_date(path_class.ymd)
 
     def load_data(self):
-        self.hq_profit = pd.read_csv(f'../data/raw/hq_profit_{self.ymd}.csv')
-        self.market_size = pd.read_csv(f'../data/raw/market_size_{self.ymd}.csv')
-        self.churned_b2bstores = pd.read_csv(f'../data/raw/churned_b2bstores_{self.ymd}.csv')
-        self.new_b2bstores = pd.read_csv(f'../data/raw/new_b2bstores_{self.ymd}.csv')
-        self.churned_hurbs = pd.read_csv(f'../data/raw/churned_hurbs_{self.ymd}.csv')
-        self.new_hurbs = pd.read_csv(f'../data/raw/new_hurbs_{self.ymd}.csv')
+        query_list = ['hq_profit', 'market_size', 'new_hurbs', 'churned_hurbs', 'new_b2bstores', 'churned_b2bstores']
+
+        for name in query_list:
+            file_path = os.path.join(self.raw_path, f'{name}_{self.ymd}.csv')
+            if os.path.isfile(file_path):
+                setattr(self, name, pd.read_csv(file_path))
+            else:
+                pass
+
         self.team_flag, self.team_flag_name = load_team_flag(self.upload_path, self.ymd)
 
     def team_flag_preprocessing(self):
@@ -80,7 +84,7 @@ class preprocessor:
 
         # 시군구 형식 일치
         # 각 데이터프레임에서 고유한 값들을 집합(set)으로 추출
-        market_size_set = set(self.market_size['area_depth2'].astype(str).unique())
+        market_size_set = set(self.team_flag['area_depth2'].astype(str).unique())
         team_flag_set = set(self.team_flag['area_depth2'].unique())
 
         # marketsize_set에만/team_flag_set에만 존재하는 값들
@@ -117,15 +121,19 @@ class preprocessor:
         self.team_flag.loc[self.team_flag['area_depth2'] == '세종특별자치시', 'department'] = '중부사업부'
         self.team_flag.loc[self.team_flag['area_depth2'] == '세종특별자치시', 'team'] = '4팀'
 
-        file_path = os.path.join(self.preprocessed_path, self.team_flag_name)
+        file_path = os.path.join(self.preprocessed_path, f'team_flag_{self.ymd}.csv')
         
         if not os.path.isfile(file_path):
-            self.team_flag.to_csv(file_path, index=False)  # Save using the full path
+            self.team_flag.to_csv(file_path, index=False)
         else:
             pass
     
     def merge_all(self):
-        merge1 = pd.merge(self.market_size, self.hq_profit, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
+
+        market_size_sigungu = self.market_size.groupby(['ym', 'area_depth1', 'area_depth2']).sum().reset_index()
+        hq_profit_sigunu = self.hq_profit.groupby(['ym', 'area_depth1', 'area_depth2']).sum().reset_index()
+
+        merge1 = pd.merge(market_size_sigungu, hq_profit_sigunu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
         merge2 = pd.merge(merge1, self.team_flag, how='left', on=['area_depth1', 'area_depth2'])
         
         newhurbs_temp = self.new_hurbs[['ym', 'area_depth1', 'area_depth2', 'newhurbs_hq_profit']]
@@ -147,6 +155,8 @@ class preprocessor:
         churnedb2bstores_sigungu = churnedb2bstores_temp.groupby(['ym', 'area_depth1', 'area_depth2'])[['churnedb2bstores_hq_profit']].sum().reset_index()
         
         merge6 = pd.merge(merge5, churnedb2bstores_sigungu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
+
+        merge6['barogo_cnt'] = merge6['br_cnt_roadshop'] + merge6['br_cnt_b2b']
         
         file_path = os.path.join(self.preprocessed_path, f'mergeall_{self.ymd}.csv')
         merge6.to_csv(file_path, index=False)
