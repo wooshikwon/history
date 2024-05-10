@@ -33,17 +33,17 @@ class preprocessor:
         self.lastsunday_str = get_lastsunday(path_class.ymd)
 
     def data_load(self):
-        file_path = os.path.join(self.raw_path, f'xydata_{self.lastsunday_str}.parquet')
+        xydata_filepath = self.path_class.xydata_filepath
 
-        if os.path.isfile(file_path):
-            self.df = pd.read_parquet(file_path)  # Save using the full path
+        if os.path.isfile(xydata_filepath):
+            self.df = pd.read_parquet(xydata_filepath)  # Save using the full path
         else:
             print('There is no file : xydata_{self.lastsunday_str}.parquet')
 
     def remove_outlier(self):
-        file_path = os.path.join(self.preprocessed_path, f'filtered_{self.lastsunday_str}.parquet')
+        filtered_filepath = self.path_class.filtered_filepath
 
-        if not os.path.isfile(file_path):
+        if not os.path.isfile(filtered_filepath):
             # 청크 크기 설정
             chunk_size = 10000  # 10,000개의 행으로 청크를 나눔
             num_chunks = len(self.df) // chunk_size + 1  # 청크의 총 개수 계산
@@ -87,17 +87,49 @@ class preprocessor:
                 self.filtered_df = pd.concat([self.filtered_df, df_chunk], ignore_index=True)
 
             self.filtered_df = self.filtered_df.dropna(subset=['sa_map_x', 'sa_map_y', 'ea_map_x', 'ea_map_y']).reset_index(drop=True)
-            self.filtered_df.to_parquet(file_path, index=False)
+            self.filtered_df.to_parquet(filtered_filepath, index=False)
             print(f'File saved : filtered_{self.lastsunday_str}.parquet')  # Save using the full path
         else:
-            self.filtered_df = pd.read_parquet(file_path)
+            self.filtered_df = pd.read_parquet(filtered_filepath)
             print(f'File already exists: filtered_{self.lastsunday_str}.parquet')
 
+    def hurb_info(self):
+        hurbinfo_path = self.path_class.hurbinfo_filepath
+
+        if not os.path.isfile(hurbinfo_path):
+            # 1. 주문건수가 하위 20%인 cth_wk_code를 제외한, cth_wk_code의 숫자
+            grouped = self.filtered_df.groupby(['ord_date_ymd', 'cth_br_code', 'cth_wk_code']).size().reset_index(name='order_count')
+            thresholds = grouped.groupby(['ord_date_ymd', 'cth_br_code'])['order_count'].transform(lambda x: np.percentile(x, 20))
+            filtered_grouped = grouped[grouped['order_count'] > thresholds]
+
+            # 2. finish_time의 평균
+            average_finish_time = self.filtered_df.groupby(['ord_date_ymd', 'cth_br_code'])['finish_time'].mean().reset_index(name='avg_finish_time')
+
+            # 3. 전체 주문 중 40분 이내에 완료된 주문건의 비중
+            within_40_min = self.filtered_df[self.filtered_df['finish_time'] <= 40].groupby(['ord_date_ymd', 'cth_br_code']).size().reset_index(name='within40_count')
+            total_orders = self.filtered_df.groupby(['ord_date_ymd', 'cth_br_code']).size().reset_index(name='total_count')
+            within40_ratio = pd.merge(within_40_min, total_orders, on=['ord_date_ymd', 'cth_br_code'])
+            within40_ratio['within40_ratio'] = within40_ratio['within40_count'] / within40_ratio['total_count']
+
+            # 4. 전체 주문건수
+            total_orders_count = total_orders.copy()
+
+            # 결과 데이터프레임 생성
+            self.hurbinfo_df = pd.merge(filtered_grouped.groupby(['ord_date_ymd', 'cth_br_code']).size().reset_index(name='valid_worker_count'),
+                            average_finish_time, on=['ord_date_ymd', 'cth_br_code'])
+            self.hurbinfo_df = pd.merge(self.hurbinfo_df, within40_ratio[['ord_date_ymd', 'cth_br_code', 'within40_ratio']], on=['ord_date_ymd', 'cth_br_code'])
+            self.hurbinfo_df = pd.merge(self.hurbinfo_df, total_orders_count, on=['ord_date_ymd', 'cth_br_code'])
+
+            self.hurbinfo_df.to_parquet(hurbinfo_path, index=False)
+            print(f'File saved : hurbinfo_{self.lastsunday_str}.parquet')
+        else:
+            self.hurbinfo_df = pd.read_parquet(hurbinfo_path, index=False)
+            print(f'File already exists : hurbinfo_{self.lastsunday_str}.parquet')
 
     def remove_lowdensityxy(self):
-        file_path = os.path.join(self.preprocessed_path, f'allpoints_{self.lastsunday_str}.parquet')
+        allpoints_filepath = self.path_class.allpoints_filepath
 
-        if not os.path.isfile(file_path):
+        if not os.path.isfile(allpoints_filepath):
             # 출발지와 도착지 좌표를 구분 없이 하나의 점으로 취급
             start_points = self.filtered_df[['ord_date_ymd', 'brand', 'cth_br_code', 'ord_no', 'sa_map_x', 'sa_map_y']].rename(columns={'sa_map_x': 'longitude', 'sa_map_y': 'latitude'})
             end_points = self.filtered_df[['ord_date_ymd', 'brand', 'cth_br_code', 'ord_no', 'ea_map_x', 'ea_map_y']].rename(columns={'ea_map_x': 'longitude', 'ea_map_y': 'latitude'})
@@ -139,7 +171,7 @@ class preprocessor:
             self.all_points.drop(to_drop, inplace=True)
 
             # self.all_points.drop(columns=['count', 'threshold'], inplace=True)
-            self.all_points.to_parquet(file_path, index=False)  # Save using the full path
+            self.all_points.to_parquet(allpoints_filepath, index=False)  # Save using the full path
             print(f'File saved : allpoints_{self.lastsunday_str}.parquet')
         else:
             print(f'File already exists: allpoints_{self.lastsunday_str}.parquet')
@@ -147,6 +179,7 @@ class preprocessor:
     def __call__(self):
         self.data_load()
         self.remove_outlier()
+        self.hurb_info()
         self.remove_lowdensityxy()
 
 

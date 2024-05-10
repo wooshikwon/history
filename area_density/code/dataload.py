@@ -24,7 +24,7 @@ class dataload:
 
     def data_load_save(self):
         
-        file_path = os.path.join(self.raw_path, f'xydata_{self.lastsunday_str}.parquet')
+        file_path = self.path_class.xydata_filepath
 
         if not os.path.isfile(file_path):
             raw_df = pd.read_sql_query(config.query.xydata_query(self.lastsunday_str), config.security.aws_conn)

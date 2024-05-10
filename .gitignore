@@ -3,3 +3,8 @@ sales_validation/result
 sales_validation/code/security.py
 sales_validation/code/__pycache__
 sales_validation/code/packages/__pycache__
+area_density/data
+area_density/result
+area_density/code/security.py
+area_density/code/__pycache__
+area_density/code/packages/__pycache__

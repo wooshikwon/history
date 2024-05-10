@@ -28,12 +28,18 @@ class path_class:
         self.preprocessed_path = f'{self.data_path_ymd}/preprocessed'
 
         self.result_path = f'{self.top_path}/result'
-        self.result_path_ymd = f'{self.top_path}/result/{self.lastsunday_str}'
+
+        # file path
+        self.xydata_filepath = f'{self.raw_path}/xydata_{self.lastsunday_str}.parquet'
+        self.filtered_filepath = f'{self.preprocessed_path}/filtered_{self.lastsunday_str}.parquet'
+        self.allpoints_filepath = f'{self.preprocessed_path}/allpoints_{self.lastsunday_str}.parquet'
+        self.convexhull_filepath = f'{self.preprocessed_path}/convexhull_{self.lastsunday_str}.parquet'
+        self.hurbinfo_filepath = f'{self.preprocessed_path}/hurbinfo_{self.lastsunday_str}.parquet'
+        self.result_filepath = f'{self.result_path}/result_{self.lastsunday_str}.parquet'
 
         # 디렉토리 생성
         os.makedirs(self.top_path, exist_ok=True)     
         os.makedirs(self.result_path, exist_ok=True)
-        os.makedirs(self.result_path_ymd, exist_ok=True)
         os.makedirs(self.raw_path, exist_ok=True)     
         os.makedirs(self.preprocessed_path, exist_ok=True)
 
