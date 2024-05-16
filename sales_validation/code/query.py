@@ -14,7 +14,7 @@ import pandas as pd
 
 def hq_profit_query(mydate):
     query_template = f"""
-        with st_info as (
+            with st_info as (
             select st.st_code
                 , emd.si_do as area_depth1
                 , emd.si_gun_gu as area_depth2
@@ -24,16 +24,16 @@ def hq_profit_query(mydate):
                         , st_map_x
                         , st_map_y
                     from (
-                            select *
-                                , row_number() over(partition by st_code order by load_date_ymd desc) as rank
+                        select *
+                            , row_number() over(partition by st_code order by load_date_ymd desc) as rank
                             from (
                                 select st_code
                                     , st_map_x
                                     , st_map_y
                                     , load_date_ymd
-                                    from t1_db_o2o_stts_appsis.ald_grp_st_info
+                                from t1_db_o2o_stts_appsis.ald_grp_st_info
                                 where load_date_ymd 
-                                        between concat(substr('{mydate}', 1,7), '-01')
+                                        between concat(substr('{mydate}',1,7), '-01') -- concat(substr(date_format(date('{mydate}') - interval '6' month, '%Y-%m-%d'),1,7), '-01')
                                             and '{mydate}'
                                     and st_map_x is not null
                                     and st_map_y is not null
@@ -49,15 +49,18 @@ def hq_profit_query(mydate):
             where st_contains(st_geometryfromtext(emd.wkt), st_point(cast(st.st_map_x as double), cast(st.st_map_y as double)))
             )
             , base as (
-            select substr(date_format(date('{mydate}') - interval '1' month, '%Y-%m-%d'), 1,7) as ym
-                , *
+            select *
             from st_info
-            
-            union
-
-            select substr(date_format(date('{mydate}') - interval '2' month, '%Y-%m-%d'), 1,7) as ym
-                , *
-            from st_info
+            cross join (
+                        select substr(date_format(generated_date, '%Y-%m-%d'), 1, 7) as ym
+                        from (
+                                SELECT (date('{mydate}') - interval '6' month) + interval '1' month * seq AS generated_date
+                                FROM (
+                                    SELECT sequence(0, 5) AS seqs
+                                    ) tmp
+                                CROSS JOIN UNNEST(seqs) AS t(seq)
+                                )
+                        )
             )
             ,ord_df as (
             select substr(date_format(ord_date + interval '2' hour, '%Y-%m-%d'), 1,7) as ym
@@ -95,10 +98,10 @@ def hq_profit_query(mydate):
                 , ql_t
             from t1_db_o2o_stts_appsis.ald_a01_stt_2017
             where ord_date_ymd 
-                    between concat(substr(date_format(date('{mydate}') - interval '2' month - interval '1' day, '%Y-%m-%d'), 1,7), '-01')
+                    between concat(substr(date_format(date('{mydate}') - interval '6' month - interval '1' day, '%Y-%m-%d'), 1,7), '-01')
                         and date_format(date(concat(substr('{mydate}', 1, 7), '-01')) - interval '1' day, '%Y-%m-%d')
                 and date_format(ord_date + interval '2' hour, '%Y-%m-%d')
-                    between concat(substr(date_format(date('{mydate}') - interval '2' month, '%Y-%m-%d'), 1,7), '-01')
+                    between concat(substr(date_format(date('{mydate}') - interval '6' month, '%Y-%m-%d'), 1,7), '-01')
                         and date_format(date(concat(substr('{mydate}', 1, 7), '-01')) - interval '1' day, '%Y-%m-%d')
             )
             ,b2b as (
@@ -168,10 +171,10 @@ def hq_profit_query(mydate):
                         ) b
                     on a.br_code = b.br_code
             where in_date_ymd 
-                    between concat(substr(date_format(date('{mydate}') - interval '2' month - interval '1' day, '%Y-%m-%d'), 1,7), '-01')
+                    between concat(substr(date_format(date('{mydate}') - interval '6' month - interval '1' day, '%Y-%m-%d'), 1,7), '-01')
                         and date_format(date(concat(substr('{mydate}', 1, 7), '-01')) - interval '1' day, '%Y-%m-%d')
                 and date_format(in_date + interval '2' hour, '%Y-%m-%d')
-                    between concat(substr(date_format(date('{mydate}') - interval '2' month, '%Y-%m-%d'), 1,7), '-01')
+                    between concat(substr(date_format(date('{mydate}') - interval '6' month, '%Y-%m-%d'), 1,7), '-01')
                         and date_format(date(concat(substr('{mydate}', 1, 7), '-01')) - interval '1' day, '%Y-%m-%d')
                 and ord_no is null
                 and br_cash_type_cd in ('B2', 'B5')
@@ -210,11 +213,12 @@ def hq_profit_query(mydate):
                 , a.area_depth1
                 , a.area_depth2
                 , a.area_depth3
-                , a.hq_overallmargin + coalesce(b.hq_rev_affilmgmtfee_monthlyfee, 0) as hq_overallmargin
+                , a.hq_overallmargin + coalesce(b.hq_rev_affilmgmtfee_monthlyfee, 0) + coalesce(c.hq_margin_od, 0) as hq_overallmargin
                 , a.hq_margin_roadshop
                 , a.hq_taxagencyfee_roadshop
                 , a.hq_margin_b2b
                 , a.hq_taxagencyfee_b2b
+                , coalesce(c.hq_margin_od, 0) as hq_margin_od
                 , a.br_cnt_roadshop
                 , a.br_cnt_b2b
                 , coalesce(b.hq_rev_affilmgmtfee_monthlyfee, 0) as hq_affilmgmtfee_monthlyfee
@@ -251,13 +255,41 @@ def hq_profit_query(mydate):
                         , sum(br_cnt_cnt_b2b
                             ) as br_cnt_b2b
                     from result a
-                group by 1,2,3,4
+                    group by 1,2,3,4
                     ) a
-                left join manage_br_cash b
+            left join manage_br_cash b
                     on a.area_depth1 = b.area_depth1
                         and a.area_depth2 = b.area_depth2
                         and a.area_depth3 = b.area_depth3
                         and a.ym = b.ym
+            left join (
+                        select substr(date_format(ord.createdat, '%Y-%m-%d'), 1, 7) as ym
+                            , sido as area_depth1
+                            , sigungu as area_depth2
+                            , eupmyeondong as area_depth3
+                            , sum(sales.saletotaldeliveryprice - purchases.purchasedeliveryprice) as hq_margin_od
+                        from (
+                                select orderid
+                                    , createdat + interval '9' hour as createdat
+                                from t1_db_gorela_productiongorela.public_orders
+                                where createdat + interval '9' hour
+                                    between date(concat(substr(date_format(date('{mydate}') - interval '6' month, '%Y-%m-%d'), 1,7), '-01'))
+                                        and date(date_format(date(concat(substr('{mydate}', 1, 7), '-01')) - interval '1' day, '%Y-%m-%d'))
+                                and (orderagencyid = 'baemin_one'
+                                        or orderagencyid = 'yogi_delivery')
+                                ) ord
+                        left join t1_db_gorela_productiongorela.public_sales as sales
+                                on ord.orderid = sales.orderid
+                        left join t1_db_gorela_productiongorela.public_purchases as purchases
+                                on ord.orderid = purchases.orderid
+                        left join t1_db_gorela_productiongorela.public_order_pickup_addresses as addr
+                                on ord.orderid = addr.orderid
+                        group by 1,2,3,4
+                        ) c
+                    on a.area_depth1 = c.area_depth1
+                        and a.area_depth2 = c.area_depth2
+                        and a.area_depth3 = c.area_depth3
+                        and a.ym = c.ym
         """
     return query_template
 
@@ -293,7 +325,7 @@ def market_size_query(mydate):
         )
         ,ym_int as (
         select cast(replace(substr(date_format(date('{mydate}') - interval '1' month, '%Y-%m-%d'), 1,7), '-', '') as int) as thismonth
-            , cast(replace(substr(date_format(date('{mydate}') - interval '2' month, '%Y-%m-%d'), 1,7), '-', '') as int) as lastmonth
+            , cast(replace(substr(date_format(date('{mydate}') - interval '6' month, '%Y-%m-%d'), 1,7), '-', '') as int) as lastmonth
         )
         ,dvry_population_index as (
         select a.ym
@@ -467,7 +499,9 @@ def market_size_query(mydate):
         )
 
         select concat(substr(cast(a.ym as varchar), 1, 4), '-', substr(cast(a.ym as varchar), 5, 2)) as ym
-            , area_depth1
+            , case when area_depth1 like '전라북도' then '전북특별자치도'
+                   else area_depth1
+                    end as area_depth1
             , area_depth2
             , cast(sum(
               (a.bm_area_count*(1-nonfnb_ratio) + a.ygy_area_count*(1-nonfnb_ratio) + a.cp_area_count 

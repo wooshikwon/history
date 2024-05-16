@@ -55,19 +55,20 @@ def file_remove(top_path):
 def run(ymd):
     
     top_path = os.path.expanduser('~/Desktop/work/sales_validation')
-    file_remove(top_path)
     
     # Step 1
     subprocess.call(f"python {top_path}/code/dataload.py --ymd {ymd}", shell=True)
-    time.sleep(60)
+    time.sleep(30)
     
     # Step 2
     subprocess.call(f"python {top_path}/code/preprocessor.py --ymd {ymd}", shell=True)
-    time.sleep(60)
+    time.sleep(30)
     
     # Step 3
     subprocess.call(f"python {top_path}/code/calculate_result.py --ymd {ymd}", shell=True)
-    time.sleep(60)
+    time.sleep(30)
+
+    file_remove(top_path)
 
 if __name__ == '__main__':
     

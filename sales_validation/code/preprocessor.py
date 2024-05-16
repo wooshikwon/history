@@ -62,10 +62,13 @@ class preprocessor:
         self.raw_path = self.path_class.raw_path
         self.preprocessed_path = self.path_class.preprocessed_path
         self.upload_path = self.path_class.upload_path
+
         self.ymd = format_date(path_class.ymd)
+        self.thismonth, self.lastmonth = get_previous_months(path_class.ymd)
 
     def load_data(self):
-        query_list = ['hq_profit', 'market_size', 'new_hurbs', 'churned_hurbs', 'new_b2bstores', 'churned_b2bstores']
+        query_list = ['hq_profit', 'market_size', 'new_hurbs', 'churned_hurbs', 'new_b2bstores', 'churned_b2bstores', 
+                      'previous_new_hurbs', 'previous_churned_hurbs', 'previous_new_b2bstores', 'previous_churned_b2bstores']
 
         for name in query_list:
             file_path = os.path.join(self.raw_path, f'{name}_{self.ymd}.csv')
@@ -84,7 +87,7 @@ class preprocessor:
 
         # 시군구 형식 일치
         # 각 데이터프레임에서 고유한 값들을 집합(set)으로 추출
-        market_size_set = set(self.team_flag['area_depth2'].astype(str).unique())
+        market_size_set = set(self.market_size['area_depth2'].astype(str).unique())
         team_flag_set = set(self.team_flag['area_depth2'].unique())
 
         # marketsize_set에만/team_flag_set에만 존재하는 값들
@@ -114,8 +117,19 @@ class preprocessor:
         replaced_team_flag = expanded_team_flag.replace('세종시', '세종특별자치시')
 
         # 시도 형식 일치
-        replace = dict(zip(sorted(replaced_team_flag['area_depth1'].unique()), sorted(self.market_size['area_depth1'].unique())))
-        self.team_flag = replaced_team_flag.replace(replace).drop_duplicates()
+        # 결과를 저장할 사전
+        mapping_dict = {}
+        tf = replaced_team_flag['area_depth1'].unique()
+        ms = self.market_size['area_depth1'].astype(str).unique()
+
+        # 각 줄임말에 대해 전체 이름을 찾고 매핑
+        for short_name in tf:
+            for full_name in ms:
+                # 줄임말의 모든 글자가 전체 이름에 포함되어 있는지 확인
+                if all(char in full_name for char in short_name):
+                    mapping_dict[short_name] = full_name
+                    
+        self.team_flag = replaced_team_flag.replace(mapping_dict).drop_duplicates()
 
         # 빈값 채우기
         self.team_flag.loc[self.team_flag['area_depth2'] == '세종특별자치시', 'department'] = '중부사업부'
@@ -135,23 +149,27 @@ class preprocessor:
 
         merge1 = pd.merge(market_size_sigungu, hq_profit_sigunu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
         merge2 = pd.merge(merge1, self.team_flag, how='left', on=['area_depth1', 'area_depth2'])
-        
-        newhurbs_temp = self.new_hurbs[['ym', 'area_depth1', 'area_depth2', 'newhurbs_hq_profit']]
+
+        newhurbs_concat = pd.concat([self.new_hurbs, self.previous_new_hurbs])
+        newhurbs_temp = newhurbs_concat[['ym', 'area_depth1', 'area_depth2', 'newhurbs_hq_profit']]
         newhurbs_sigungu = newhurbs_temp.groupby(['ym', 'area_depth1', 'area_depth2'])[['newhurbs_hq_profit']].sum().reset_index()
         
         merge3 = pd.merge(merge2, newhurbs_sigungu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
         
-        churnedhurbs_temp = self.churned_hurbs[['ym', 'area_depth1', 'area_depth2', 'churnedhurbs_hq_profit']]
+        churnedhurbs_concat = pd.concat([self.churned_hurbs, self.previous_churned_hurbs])
+        churnedhurbs_temp = churnedhurbs_concat[['ym', 'area_depth1', 'area_depth2', 'churnedhurbs_hq_profit']]
         churnedhurbs_sigungu = churnedhurbs_temp.groupby(['ym', 'area_depth1', 'area_depth2'])[['churnedhurbs_hq_profit']].sum().reset_index()
         
         merge4 = pd.merge(merge3, churnedhurbs_sigungu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
         
-        newb2bstores_temp = self.new_b2bstores[['ym', 'area_depth1', 'area_depth2', 'newb2bstores_hq_profit']]
+        newb2bstores_concat = pd.concat([self.new_b2bstores, self.previous_new_b2bstores])
+        newb2bstores_temp = newb2bstores_concat[['ym', 'area_depth1', 'area_depth2', 'newb2bstores_hq_profit']]
         newb2bstores_sigungu = newb2bstores_temp.groupby(['ym', 'area_depth1', 'area_depth2'])[['newb2bstores_hq_profit']].sum().reset_index()
         
         merge5 = pd.merge(merge4, newb2bstores_sigungu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
         
-        churnedb2bstores_temp = self.churned_b2bstores[['ym', 'area_depth1', 'area_depth2', 'churnedb2bstores_hq_profit']]
+        churnedb2bstores_concat = pd.concat([self.churned_b2bstores, self.previous_churned_b2bstores])
+        churnedb2bstores_temp = churnedb2bstores_concat[['ym', 'area_depth1', 'area_depth2', 'churnedb2bstores_hq_profit']]
         churnedb2bstores_sigungu = churnedb2bstores_temp.groupby(['ym', 'area_depth1', 'area_depth2'])[['churnedb2bstores_hq_profit']].sum().reset_index()
         
         merge6 = pd.merge(merge5, churnedb2bstores_sigungu, how='left', on=['ym', 'area_depth1', 'area_depth2']).fillna(0)
