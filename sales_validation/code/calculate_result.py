@@ -57,20 +57,16 @@ class making_report:
 
     # 1-1. 전체 실적 및 바로고 본사 수익
     def result_101(self):
-        usecols = ['hq_margin_roadshop', 'hq_taxagencyfee_roadshop', 'hq_margin_b2b', 'hq_taxagencyfee_b2b', 'hq_affilmgmtfee_monthlyfee']
+        usecols = ['hq_margin_roadshop', 'hq_taxagencyfee_roadshop', 'hq_margin_b2b', 'hq_taxagencyfee_b2b', 'hq_margin_od', 'hq_affilmgmtfee_monthlyfee']
 
         df_targetmonth = self.mergeall[self.mergeall['ym'] == self.targetmonth][usecols].sum()
         df_lastmonth = self.mergeall[self.mergeall['ym'] == self.lastmonth][usecols].sum()
         
         # DataFrame 생성 및 결합
         temp = pd.DataFrame({
-            f'Target Month': df_targetmonth,
-            'Last Month': df_lastmonth
+            'Last Month': df_lastmonth,
+            'Target Month': df_targetmonth
         })
-
-        # 전체 합산 대비 비중 계산
-        temp['Target Month Proportion'] = temp['Target Month'] / temp['Target Month'].sum()
-        temp['Last Month Proportion'] = temp['Last Month'] / temp['Last Month'].sum()
 
         # 변화량 계산
         temp['Change'] = temp['Target Month'] - temp['Last Month']
@@ -83,84 +79,64 @@ class making_report:
         for col in ['Target Month', 'Last Month', 'Change']:
             temp[col] = temp[col].apply(lambda x: '{:,.0f}'.format(x) if isinstance(x, (int, float)) else x)
         
-        for col in ['Target Month Proportion', 'Last Month Proportion', 'Rate of change']:
+        for col in ['Rate of change']:
             temp[col] = temp[col].apply(lambda x: '{:.2f}'.format(x) if isinstance(x, (int, float)) else x)
 
-        temp.columns = [f'{self.targetmonth}', f'{self.lastmonth}', f'{self.targetmonth}_비중', f'{self.lastmonth}_비중', '변화량', '변화율']
-        temp.index = ['콜비_로드샵', '정산대행수수료_로드샵', '콜비_B2B', '정산대행수수료_B2B', '월정액관리비수수료', '총계']
+        temp.columns = [f'{self.lastmonth}', f'{self.targetmonth}', '변화량', '변화율']
+        temp.index = ['로드샵_콜비', '로드샵_정산대행수수료', 'B2B_콜비', 'B2B_정산대행수수료', '배민/요기배달_선차감', '월정액관리비수수료', '총계'] 
 
         # 이미지로 저장
         dfi.export(temp, f'{self.result_path_ymd}/{self.ymd}_101.png', max_cols=-1, max_rows=-1)
 
-    # 1-2. 바로고 콜 수
+    # 1-2. 배달시장 전체 및 바로고 M/S
     def result_102(self):
-    
-        usecols = ['br_cnt_roadshop', 'br_cnt_b2b']
-
-        df_targetmonth = self.mergeall[self.mergeall['ym'] == self.targetmonth][usecols].sum()
-        df_lastmonth = self.mergeall[self.mergeall['ym'] == self.lastmonth][usecols].sum()
-        
-        # DataFrame 생성 및 결합
-        temp = pd.DataFrame({
-            'Target Month': df_targetmonth,
-            'Last Month': df_lastmonth
-        })
-
-        # 전체 합산 대비 비중 계산
-        temp['Target Month Proportion'] = temp['Target Month'] / temp['Target Month'].sum()
-        temp['Last Month Proportion'] = temp['Last Month'] / temp['Last Month'].sum()
-
-        # 변화량 계산
-        temp['Change'] = temp['Target Month'] - temp['Last Month']
-        temp['Rate of change'] = (temp['Target Month'] - temp['Last Month']) / temp['Last Month']*100
-
-        temp.loc['Total'] = temp.sum()
-        temp.loc['Total', 'Rate of change'] = (temp.loc['Total', 'Target Month'] - temp.loc['Total', 'Last Month']) / temp.loc['Total', 'Last Month']*100
-
-        # 숫자 포맷 적용
-        for col in ['Target Month', 'Last Month', 'Change']:
-            temp[col] = temp[col].apply(lambda x: '{:,.0f}'.format(x) if isinstance(x, (int, float)) else x)
-        
-        for col in ['Target Month Proportion', 'Last Month Proportion', 'Rate of change']:
-            temp[col] = temp[col].apply(lambda x: '{:.2f}'.format(x) if isinstance(x, (int, float)) else x)
-
-        temp.columns = [f'{self.targetmonth}', f'{self.lastmonth}', f'{self.targetmonth}_비중', f'{self.lastmonth}_비중', '변화량', '변화율']
-        temp.index = ['건수_로드샵', '건수_B2B', '건수_총계']
-        
-        # 이미지로 저장
-        dfi.export(temp, f'{self.result_path_ymd}/{self.ymd}_102.png', max_cols=-1, max_rows=-1)
-
-    # 1-3. 배달시장 전체 및 바로고 M/S
-    def result_103(self):
     
         usecols = ['ym', 'market_cnt', 'ordinary_delivery_cnt', 'br_cnt_roadshop', 'br_cnt_b2b']
         
         temp = self.mergeall[usecols]
-        
+
         df_targetmonth = temp[temp['ym'] == self.targetmonth].sum().loc[['market_cnt', 'ordinary_delivery_cnt', 'br_cnt_roadshop', 'br_cnt_b2b']]
         df_lastmonth = temp[temp['ym'] == self.lastmonth].sum().loc[['market_cnt', 'ordinary_delivery_cnt', 'br_cnt_roadshop', 'br_cnt_b2b']]
-        
+
         # DataFrame 생성 및 결합
         temp2 = pd.DataFrame({
-            'Target Month': df_targetmonth,
-            'Last Month': df_lastmonth
-        }).T
+            'Last Month': df_lastmonth,
+            'Target Month': df_targetmonth
+        })
 
-        # 전체 합산 대비 비중 계산
-        temp2['M/S'] = (temp2['br_cnt_roadshop'] + temp2['br_cnt_b2b']) / temp2['market_cnt']*100
-        
-                # 숫자 포맷 적용
-        for col in ['market_cnt', 'ordinary_delivery_cnt', 'br_cnt_roadshop', 'br_cnt_b2b']:
-            temp2[col] = temp2[col].apply(lambda x: '{:,.0f}'.format(x) if isinstance(x, (int, float)) else x)
-        
-        for col in ['M/S']:
-            temp2[col] = temp2[col].apply(lambda x: '{:.2f}'.format(x) if isinstance(x, (int, float)) else x)
+        # 전체 합산과 비중 계산
+        barogo_sum = (temp2.loc['br_cnt_roadshop'] + temp2.loc['br_cnt_b2b'])
+        ms = (temp2.loc['br_cnt_roadshop'] + temp2.loc['br_cnt_b2b']) / temp2.loc['market_cnt']*100
 
-        temp2.columns = ['전체 시장건수', 'OD 건수', '바로고_건수_로드샵', '바로고_건수_B2B', 'M/S']
-        temp2.index = [f'{self.targetmonth}', f'{self.lastmonth}']
+        temp2.loc['barogo_cnt', 'Last Month'] = barogo_sum[0]
+        temp2.loc['barogo_cnt', 'Target Month'] = barogo_sum[1]
+
+        temp2.loc['M/S', 'Last Month'] = ms[0]
+        temp2.loc['M/S', 'Target Month'] = ms[1]
+
+        temp2['변화량'] = temp2['Target Month'] - temp2['Last Month']
+        temp2['변화율'] = (temp2['Target Month'] - temp2['Last Month']) / temp2['Last Month']*100
+
+        temp2.iloc[5,3] = np.nan
+
+        temp2.columns = [f'{self.lastmonth}', f'{self.targetmonth}', '변화량', '변화율']
+        temp2.index = ['전체시장_건수', 'OD_건수', '바로고_로드샵건수', '바로고_B2B건수', '바로고_전체건수', '바로고_M/S']
+
+        # 포맷팅 함수 정의
+        def format_cells(x, row, col):
+            if row == len(temp2) - 1 and col == len(temp2.columns) - 1:  # 맨 마지막 row와 맨 마지막 컬럼
+                return f"{x:.0f}"
+            else:
+                return f"{x:,.2f}"
+
+        # 포맷팅 적용
+        df_formatted = temp2.copy()
+        for row in range(len(temp2)):
+            for col in range(len(temp2.columns)):
+                df_formatted.iloc[row, col] = format_cells(temp2.iloc[row, col], row, col)
         
         # 이미지로 저장
-        dfi.export(temp2, f'{self.result_path_ymd}/{self.ymd}_103.png', max_cols=-1, max_rows=-1)
+        dfi.export(df_formatted, f'{self.result_path_ymd}/{self.ymd}_102.png', max_cols=-1, max_rows=-1)
 
     def result_201_data(self):
     
@@ -547,7 +523,6 @@ class making_report:
 
         self.result_101()
         self.result_102()
-        self.result_103()
 
         df_201 = self.result_201_data()
         self.result_201_graph(df_201)

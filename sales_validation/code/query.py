@@ -278,12 +278,17 @@ def hq_profit_query(mydate):
                                 and (orderagencyid = 'baemin_one'
                                         or orderagencyid = 'yogi_delivery')
                                 ) ord
+                        join t1_db_gorela_productiongorela.public_deliveries as dvry
+                          on ord.orderid = dvry.orderid
                         left join t1_db_gorela_productiongorela.public_sales as sales
                                 on ord.orderid = sales.orderid
                         left join t1_db_gorela_productiongorela.public_purchases as purchases
                                 on ord.orderid = purchases.orderid
                         left join t1_db_gorela_productiongorela.public_order_pickup_addresses as addr
                                 on ord.orderid = addr.orderid
+                       where dvry.status = 'DROP_FINISHED'
+                         and dvry.deliveryagencyid != 'self'
+                         and dvry.deliveryagencydeliveryid is not null
                         group by 1,2,3,4
                         ) c
                     on a.area_depth1 = c.area_depth1
