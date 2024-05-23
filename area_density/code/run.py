@@ -39,7 +39,6 @@ def file_remove(top_path):
 def run(ymd):
     
     top_path = os.path.expanduser('~/Desktop/work/area_density')
-    file_remove(top_path)
     
     # Step 1
     subprocess.call(f"python {top_path}/code/dataload.py --ymd {ymd}", shell=True)
@@ -52,6 +51,8 @@ def run(ymd):
     # Step 3
     subprocess.call(f"python {top_path}/code/create_convexhull.py --ymd {ymd}", shell=True)
     time.sleep(60)
+
+    file_remove(top_path)
 
 if __name__ == '__main__':
     

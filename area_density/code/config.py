@@ -31,10 +31,12 @@ class path_class:
 
         # file path
         self.xydata_filepath = f'{self.raw_path}/xydata_{self.lastsunday_str}.parquet'
+
         self.filtered_filepath = f'{self.preprocessed_path}/filtered_{self.lastsunday_str}.parquet'
         self.allpoints_filepath = f'{self.preprocessed_path}/allpoints_{self.lastsunday_str}.parquet'
         self.convexhull_filepath = f'{self.preprocessed_path}/convexhull_{self.lastsunday_str}.parquet'
         self.hurbinfo_filepath = f'{self.preprocessed_path}/hurbinfo_{self.lastsunday_str}.parquet'
+        
         self.result_filepath = f'{self.result_path}/result_{self.lastsunday_str}.parquet'
 
         # 디렉토리 생성

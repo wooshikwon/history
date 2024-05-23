@@ -28,7 +28,7 @@ class dataload:
 
         if not os.path.isfile(file_path):
             raw_df = pd.read_sql_query(config.query.xydata_query(self.lastsunday_str), config.security.aws_conn)
-            raw_df.to_parquet(file_path, index=False)  # Save using the full path
+            raw_df.to_parquet(file_path, index=False)  # file_path class의 xydata_filepath 경로로 저장
         else:
             pass
 
@@ -39,7 +39,6 @@ class dataload:
 
 
 # config.py의 path Class
-# packages, __init__.py의 Logger를 얻는 함수.
 def path_class(ymd):
     file_class = config.path_class(ymd)
     return file_class
