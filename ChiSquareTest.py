@@ -18,29 +18,62 @@ class ChiSquareTest:
     def __init__(self, df):
         self.df = df
 
-    def test_independence(self):
+    def goodness_of_fit_test(self, expected_counts):
+        results = []
+
+        # 관측 빈도 계산
+        observed_counts = self.df['value'].value_counts().sort_index()
+        
+        # 기대 빈도와 관측 빈도의 길이 일치 확인
+        if len(observed_counts) != len(expected_counts):
+            raise ValueError("The length of observed counts and expected counts must be the same.")
+
+        # 카이제곱 통계량 계산
+        chi2_stat, chi2_pvalue = stats.chisquare(f_obs=observed_counts, f_exp=expected_counts)
+        
+        # 결과 추가
+        results.append(f"Observed counts: {observed_counts.tolist()}")
+        results.append(f"Expected counts: {expected_counts}")
+        results.append(f"----------\nResult (Chi-Square Goodness of Fit Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}")
+
+        # 결과 출력
+        for result in results:
+            print(result)
+        
+        return chi2_stat, chi2_pvalue
+
+    def independence_test(self):
         results = []
 
         crosstab = pd.crosstab(self.df['group'], self.df['value'])
         
         # 기대 빈도 계산
-        chi2_stat, p_val, dof, expected = stats.chi2_contingency(crosstab)
+        chi2_stat, chi2_pvalue, dof, expected = stats.chi2_contingency(crosstab)
 
         # 기대 빈도가 5 미만인 셀 확인
         if np.any(expected < 5):
             # 기대 빈도가 5 미만인 경우 피셔의 정확 검정 사용
             results.append(expected)
             if crosstab.shape == (2, 2):  # 피셔의 정확 검정은 2x2 표에서만 사용 가능
-                fisher_stat, fisher_p = stats.fisher_exact(crosstab)
-                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - p-value: {fisher_p:.4f}")
+                fisher_stat, fisher_pvalue = stats.fisher_exact(crosstab)
+                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - Statistic: {fisher_stat:.4f}, p-value: {fisher_pvalue:.4f}")
+                statistic = fisher_stat
+                pvalue = fisher_pvalue
+
             else:
                 results.append("Fisher's Exact Test is not applicable for tables larger than 2x2.")
         else:
             # 기대 빈도가 모두 5 이상인 경우 카이제곱 검정 사용
             results.append(expected)
-            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {p_val:.4f}")
+            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}")
+            statistic = chi2_stat
+            pvalue = chi2_pvalue
+
+        # 결과 출력
+        for result in results:
+            print(result)
         
-        return results
+        return statistic, pvalue
 
     def bar_plot(self, title=None):
         # group 컬럼이 존재하는지 확인
@@ -60,8 +93,8 @@ class ChiSquareTest:
 
 # In[24]:
 
-
 # 예시 데이터
+'''
 data = {
     'group': ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
     'value': ['yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no']
@@ -70,10 +103,23 @@ data = {
 df = pd.DataFrame(data)
 
 chi_square_test = ChiSquareTest(df)
-results = chi_square_test.test_independence()
 
-for result in results:
-    print(result)
-
+statistic, pvalue = chi_square_test.independence_test()
 chi_square_test.bar_plot()
 
+
+
+# 예시 데이터2
+df = pd.DataFrame({
+    'group': ['A']*100,
+    'value': np.random.choice([1, 2, 3, 4], size=100, p=[0.2, 0.3, 0.3, 0.2])
+})
+
+# 기대 빈도 정의 (임의의 예시로 전체 100개의 데이터에 대한 기대 비율을 정의)
+expected_counts = [20, 30, 30, 20]
+
+# 테스트 실행
+test = ChiSquareTest(df)
+chi2_stat, chi2_pvalue = test.goodness_of_fit_test(expected_counts)
+test.bar_plot()
+'''

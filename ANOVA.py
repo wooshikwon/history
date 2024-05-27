@@ -51,15 +51,23 @@ class anova:
         # ANOVA 수행 조건 확인
         if normality and equal_variance:
             # ANOVA 수행
-            model = ols('value ~ C(group)', data=df).fit()
+            model = ols('value ~ C(group)', data=self.df).fit()
             anova_result = sm.stats.anova_lm(model, typ=2)
             results.append("----------\nPrior Test - Normality O / Equal Variance O\nResult(ANOVA):\n{}".format(anova_result))
+            # p-value와 F-통계량 추출
+            statistic = anova_result.loc['C(group)', 'F']
+            pvalue = anova_result.loc['C(group)','PR(>F)']
         else:
             # Kruskal-Wallis H 검정 수행
             kruskal_test = stats.kruskal(*group_data)
             results.append("----------\nPrior Test - Normality X or Equal Variance X\nResult(Kruskal-Wallis H test) - Statistic: {:.4f}, p-value: {:.4f}".format(kruskal_test.statistic, kruskal_test.pvalue))
+            statistic = kruskal_test.statistic
+            pvalue = kruskal_test.pvalue
         
-        return results
+        for result in results:
+            print(result)
+
+        return statistic, pvalue
     
     def twoway_anova(self):
         results = []
@@ -69,19 +77,21 @@ class anova:
         groups2 = self.df['factor2'].unique()
         
         # 각 조합별 데이터를 추출합니다.
-        group_data = [self.df[(self.df['factor1'] == g1) & (self.df['factor2'] == g2)]['value'] for g1 in groups1 for g2 in groups2]
-        
-        # 정규성 검정 (Shapiro-Wilk Test)
+        group_data = {}
+        for g1 in groups1:
+            for g2 in groups2:
+                group_data[(g1, g2)] = self.df[(self.df['factor1'] == g1) & (self.df['factor2'] == g2)]['value']
+
         normality = True
-        for data in group_data:
-            shapiro_test = stats.shapiro(data)
-            results.append(f"Shapiro-Wilk Test - Statistic: {shapiro_test.statistic:.4f}, p-value: {shapiro_test.pvalue:.4f}")
+        for (k1, k2), v in group_data.items():
+            shapiro_test = stats.shapiro(v)
+            results.append(f"Step1(Shapiro-Wilk for {k1, k2}) - Statistic: {shapiro_test.statistic:.4f}, p-value: {shapiro_test.pvalue:.4f}")
             if shapiro_test.pvalue < 0.05:
                 normality = False
         
         # 등분산성 검정 (Levene's Test)
-        levene_test = stats.levene(*group_data)
-        results.append(f"Levene's Test - Statistic: {levene_test.statistic:.4f}, p-value: {levene_test.pvalue:.4f}")
+        levene_test = stats.levene(*list(group_data.values()))
+        results.append(f"Step2(Levene's) - Statistic: {levene_test.statistic:.4f}, p-value: {levene_test.pvalue:.4f}")
         if levene_test.pvalue < 0.05:
             equal_variance = False
         else:
@@ -92,15 +102,22 @@ class anova:
             # Two-way ANOVA 수행
             model = ols('value ~ C(factor1) * C(factor2)', data=self.df).fit()
             anova_result = sm.stats.anova_lm(model, typ=2)
-            results.append("----------\nPrior Test - Normality O / Equal Variance O\nResult(Two-way ANOVA):\n{}".format(anova_result))
+            results.append(f"----------\nPrior Test - Normality O / Equal Variance O\nResult(Two-way ANOVA):\n{anova_result}")
+            statistic = anova_result['F']
+            pvalue = anova_result['PR(>F)']
         else:
             # Friedman Test 수행 (비모수적 대안)
             # 데이터를 넓은 형식으로 변환 (wide format)
             df_wide = self.df.pivot(index='factor1', columns='factor2', values='value')
             friedman_test = stats.friedmanchisquare(*[df_wide[col].dropna() for col in df_wide])
             results.append("----------\nPrior Test - Normality X or Equal Variance X\nResult(Friedman Test) - Statistic: {:.4f}, p-value: {:.4f}".format(friedman_test.statistic, friedman_test.pvalue))
+            statistic = friedman_test.statistic
+            pvalue = friedman_test.pvalue
         
-        return results
+        for result in results:
+            print(result)
+
+        return statistic, pvalue
     
     def anova_visualization(self):
         factor_cols = [col for col in self.df.columns if col != 'value']
@@ -126,6 +143,19 @@ class anova:
 
 
 # In[36]:
+'''
+# 예시 데이터 (Two-way ANOVA)
+data_oneway = {
+    'group': ['A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C', 'A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'C'],
+    'value': [2.3, 3.1, 2.9, 3.8, 4.0, 3.5, 5.1, 5.3, 5.2, 2.6, 2.7, 2.8, 4.2, 4.1, 4.3, 5.0, 5.1, 5.4]
+}
+df_oneway = pd.DataFrame(data_oneway)
+
+# Two-way ANOVA 시각화
+test = anova(df_oneway)
+test.oneway_anova()
+
+test.anova_visualization()
 
 
 # 예시 데이터 (Two-way ANOVA)
@@ -138,10 +168,8 @@ df_twoway = pd.DataFrame(data_twoway)
 
 # Two-way ANOVA 시각화
 test = anova(df_twoway)
-results = test.twoway_anova()
-# 각 단계의 결과를 여러 줄로 출력
-for result in results:
-    print(result)
+test.twoway_anova()
+
 
 test.anova_visualization()
-
+'''

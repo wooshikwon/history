@@ -34,12 +34,16 @@ class MeanTest:
             # 정규성 검정을 만족하지 못한 경우
             wilcoxon_test = stats.wilcoxon(self.df['value'] - population_mean)
             results.append("----------\nPrior Test - Normality X\nResult(Wilcoxon signed-rank test) - Statistic: {:.4f}, p-value: {:.4f}".format(wilcoxon_test.statistic, wilcoxon_test.pvalue))
+            statistic = wilcoxon_test.statistic
+            pvalue = wilcoxon_test.pvalue
         else:
             # 정규성 검정을 만족한 경우
             t_test = stats.ttest_1samp(self.df['value'], population_mean)
             results.append("----------\nPrior Test - Normality O\nResult(Single sample t-test) - Statistic: {:.4f}, p-value: {:.4f}".format(t_test.statistic, t_test.pvalue))
+            statistic = t_test.statistic
+            pvalue = t_test.pvalue
         
-        return results
+        return results, statistic, pvalue
 
     # 대응표본 검정
     def paired_samples_test(self):
@@ -62,12 +66,16 @@ class MeanTest:
             # 정규성 검정을 만족하지 못한 경우
             wilcoxon_test = stats.wilcoxon(group1, group2)
             results.append(f"----------\nPrior Test - Normality X\nResult(Wilcoxon signed-rank test) - Statistic: {wilcoxon_test.statistic:.4f}, p-value: {wilcoxon_test.pvalue:.4f}")
+            statistic = wilcoxon_test.statistic
+            pvalue = wilcoxon_test.pvalue
         else:
             # 정규성 검정을 만족한 경우
             paired_t_test = stats.ttest_rel(group1, group2)
             results.append(f"----------\nPrior Test - Normality O\nResult(Paired sample t-test) - Statistic: {paired_t_test.statistic:.4f}, p-value: {paired_t_test.pvalue:.4f}")
+            statistic = paired_t_test.statistic
+            pvalue = paired_t_test.pvalue
         
-        return results
+        return results, statistic, pvalue
     
     # 독립표본 검정
     def independent_samples_test(self):
@@ -82,7 +90,7 @@ class MeanTest:
         
         if correlation_test.pvalue < 0.05:
             # 독립성 검정을 만족하지 못한 경우 (상관관계가 유의미한 경우)
-            results.append(f"----------\nPrior Test - Independence X\nResult - Nan")
+            results.append(f"----------\nPrior Test - Independence X\nResult - Need Paired Sample Test")
 
         else:
             # 독립성 검정을 만족한 경우 (상관관계가 유의미하지 않은 경우)
@@ -97,7 +105,8 @@ class MeanTest:
                 # 정규성 검정을 만족하지 못하고 표본 크기가 30 미만인 경우
                 mann_whitney_u_test = stats.mannwhitneyu(group1, group2)
                 results.append(f"----------\nPrior Test - Independence O / Nomrmality X\n Result(Mann-Whitney U test) - Statistic: {mann_whitney_u_test.statistic:.4f}, p-value: {mann_whitney_u_test.pvalue:.4f}")
-
+                statistic = mann_whitney_u_test.statistic
+                pvalue = mann_whitney_u_test.pvalue
             else:
                 # 정규성 검정을 만족한 경우 또는 표본 크기가 30 이상인 경우
                 levene_test = stats.levene(group1, group2)
@@ -107,13 +116,16 @@ class MeanTest:
                     # 등분산성을 만족하지 못한 경우
                     welch_t_test = stats.ttest_ind(group1, group2, equal_var=False)
                     results.append(f"----------\nPrior Test - Independence O / Nomrmality O / Equal Variance X\nResult(Welch t-test) - Statistic: {welch_t_test.statistic:.4f}, p-value: {welch_t_test.pvalue:.4f}")
-
+                    statistic = welch_t_test.statistic
+                    pvalue = welch_t_test.pvalue
                 else:
                     # 등분산성을 만족한 경우
                     independent_t_test = stats.ttest_ind(group1, group2, equal_var=True)
                     results.append(f"----------\nPrior Test - Independence O / Nomrmality O / Equal Variance O\nResult(Independent samples t-test) - Statistic: {independent_t_test.statistic:.4f}, p-value: {independent_t_test.pvalue:.4f}")
+                    statistic = independent_t_test.statistic
+                    pvalue = independent_t_test.pvalue
         
-        return results
+        return results, statistic, pvalue
 
     def bar_plot(self, title=None, estimator=np.mean):
         # group 컬럼이 존재하는지 확인
