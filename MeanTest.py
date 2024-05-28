@@ -20,36 +20,35 @@ warnings.filterwarnings(action='ignore')
 
 class meantest:
     def __init__(self, df):
-        self.df = df
+        self.df = df.dropna()
 
     # 단일표본 검정
     def single_sample_test(self, population_mean):
+        columns = list(self.df.columns)
+
+        # df 구조 검사
+        if len(columns) != 1 or columns[0] != 'value':
+            raise ValueError("The 'value' column is required")
+
         results = []
-
-        # 그룹 레벨이 1개 뿐이어야 함
-        if self.df['group'].nunique() > 1:
-            raise ValueError("Single tests require only one group.")
-
-        group = self.df['group'].unique()
-        group_value = self.df[self.df['group'] == group]['value'].reset_index(drop=True)
 
         # Title
         results.append("<Single Sample Test>")
-        results.append(f"{group}({group_value.mean().round(2)}) - population mean({population_mean})\n----------")
+        results.append(f"mean({self.df['value'].mean().round(2)}) - population mean({population_mean})\n----------")
 
         # 정규성 검정 (Shapiro-Wilk Test)
-        shapiro_test = stats.shapiro(group_value)
+        shapiro_test = stats.shapiro(self.df['value'])
         results.append(f"Step1(Shapiro-Wilk) - Statistic: {shapiro_test.statistic:.4f}, p-value: {shapiro_test.pvalue:.4f}")
         
-        if (shapiro_test.pvalue < 0.05) and (len(self.df) < 30):
+        if (shapiro_test.pvalue < 0.05) and (len(self.df['value']) < 30):
             # 정규성 검정을 만족하지 못한 경우
-            wilcoxon_test = stats.wilcoxon(group_value - population_mean)
+            wilcoxon_test = stats.wilcoxon(self.df['value'] - population_mean)
             results.append(f"----------\nPrior Test - Normality X\nResult(Wilcoxon signed-rank test) - Statistic: {wilcoxon_test.statistic:.4f}, p-value: {wilcoxon_test.pvalue:.4f}\n")
             statistic = wilcoxon_test.statistic
             pvalue = wilcoxon_test.pvalue
         else:
             # 정규성 검정을 만족한 경우
-            t_test = stats.ttest_1samp(group_value, population_mean)
+            t_test = stats.ttest_1samp(self.df['value'], population_mean)
             results.append(f"----------\nPrior Test - Normality O OR n>= 30\nResult(Single sample t-test) - Statistic: {t_test.statistic:.4f}, p-value: {t_test.pvalue:.4f}\n")
             statistic = t_test.statistic
             pvalue = t_test.pvalue
@@ -61,42 +60,34 @@ class meantest:
 
     # 대응표본 검정
     def paired_samples_test(self):
+        columns = self.df.columns
+
+        # df 구조 검사
+        if len(columns) != 2 or set(columns) != {'before', 'after'}:
+            raise ValueError("The 'before' and 'after' columns are required")
+        
         results = []
 
-        # 그룹 레벨이 2개 뿐이어야 함
-        if self.df['group'].nunique() != 2:
-            raise ValueError("Paired Sample tests require two groups.")
-        
-        group1 = self.df['group'].unique()[0]
-        group2 = self.df['group'].unique()[1]
-
-        group1_value = self.df[self.df['group'] == group1]['value'].reset_index(drop=True)
-        group2_value = self.df[self.df['group'] == group2]['value'].reset_index(drop=True)
-        
-        # 두 그룹의 표본 수가 동일해야 함
-        if len(group1_value) != len(group2_value):
-            raise ValueError("Paired tests require both groups to have the same number of observations.")
-        
         # Title
         results.append("<Paired Sample Test>")
-        results.append(f"{group1}({group1_value.mean().round(2)}) - {group2}){group2_value.mean().round(2)})\n----------")
+        results.append(f"before({self.df['before'].mean().round(2)}) - after({self.df['after'].mean().round(2)})\n----------")
         
         # 정규성 검정 (Shapiro-Wilk Test)
-        shapiro_group1 = stats.shapiro(group1_value)
-        shapiro_group2 = stats.shapiro(group2_value)
+        shapiro_group1 = stats.shapiro(self.df['before'])
+        shapiro_group2 = stats.shapiro(self.df['after'])
         
-        results.append(f"Step1(Shapiro-Wilk for {group1}) - Statistic: {shapiro_group1.statistic:.4f}, p-value: {shapiro_group1.pvalue:.4f}")
-        results.append(f"Step1(Shapiro-Wilk for {group2}) - Statistic: {shapiro_group2.statistic:.4f}, p-value: {shapiro_group2.pvalue:.4f}")
+        results.append(f"Step1(Shapiro-Wilk for before) - Statistic: {shapiro_group1.statistic:.4f}, p-value: {shapiro_group1.pvalue:.4f}")
+        results.append(f"Step1(Shapiro-Wilk for after) - Statistic: {shapiro_group2.statistic:.4f}, p-value: {shapiro_group2.pvalue:.4f}")
         
-        if (shapiro_group1.pvalue < 0.05 or shapiro_group2.pvalue < 0.05) and (len(group1_value) < 30 or len(group2_value) < 30):
+        if (shapiro_group1.pvalue < 0.05 or shapiro_group2.pvalue < 0.05) and (len(self.df) < 30):
             # 정규성 검정을 만족하지 못한 경우
-            wilcoxon_test = stats.wilcoxon(group1_value, group2_value)
+            wilcoxon_test = stats.wilcoxon(self.df['before'], self.df['after'])
             results.append(f"----------\nPrior Test - Normality X\nResult(Wilcoxon signed-rank test) - Statistic: {wilcoxon_test.statistic:.4f}, p-value: {wilcoxon_test.pvalue:.4f}\n")
             statistic = wilcoxon_test.statistic
             pvalue = wilcoxon_test.pvalue
         else:
             # 정규성 검정을 만족한 경우
-            paired_t_test = stats.ttest_rel(group1_value, group2_value)
+            paired_t_test = stats.ttest_rel(self.df['before'], self.df['after'])
             results.append(f"----------\nPrior Test - Normality O OR n>=30\nResult(Paired sample t-test) - Statistic: {paired_t_test.statistic:.4f}, p-value: {paired_t_test.pvalue:.4f}\n")
             statistic = paired_t_test.statistic
             pvalue = paired_t_test.pvalue
@@ -108,17 +99,23 @@ class meantest:
     
     # 독립표본 검정
     def independent_samples_test(self):
-        results = []
+        columns = self.df.columns
+
+        # df 구조 검사
+        if len(columns) != 2 or set(columns) != {'group', 'value'}:
+            raise ValueError("The 'group' and 'value' columns are required")
 
         # 그룹 레벨이 2개 뿐이어야 함
         if self.df['group'].nunique() != 2:
-            raise ValueError("Single tests require two groups.")
+            raise ValueError("Single sample test require exactly two levels.")
         
         group1 = self.df['group'].unique()[0]
         group2 = self.df['group'].unique()[1]
 
         group1_value = self.df[self.df['group'] == group1]['value'].reset_index(drop=True)
         group2_value = self.df[self.df['group'] == group2]['value'].reset_index(drop=True)
+
+        results = []
 
         # Title
         results.append("<Independent Samples Test>")
@@ -160,41 +157,79 @@ class meantest:
         
         return statistic, pvalue
 
-    def bar_plot(self, title=None, estimator=np.mean):
-        # group 컬럼이 존재하는지 확인
-        if 'group' in self.df.columns:          
-            # 막대 그래프
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.barplot(x='group', y='value', data=self.df, estimator=estimator, ci='sd', ax=ax)
+    def bar_plot(self):
+        columns = self.df.columns
+        
+        if len(columns) == 1 and columns[0] == 'value':
+            fig, ax = plt.subplots(figsize=(3, 6))
+            plt.title = 'Single Sample Test'
+            sns.barplot(x=['Sample'], y=[self.df['value'].mean()], yerr=[self.df['value'].std()], ax=ax)
+            ax.set_ylabel('Value')
+            ax.set_title('Mean and Standard Deviation of Value')
+            plt.show()
+
+        elif len(columns) == 2 and set(columns) == {'before', 'after'}:
+            # 각 컬럼의 평균과 표준편차 계산
+            mean_values = self.df.mean()
+            std_values = self.df.std()
+
+            # 그래프 그리기
+            fig, ax = plt.subplots()
+            ax.bar(mean_values.index, mean_values.values, yerr=std_values.values, capsize=5)
+            ax.set_ylabel('Value')
+            ax.set_title('Mean and Standard Deviation of Before and After')
+            plt.show()
+
+        elif len(columns) == 2 and set(columns) == {'group', 'value'}:
+            # 각 그룹의 평균과 표준편차 계산
+            group_stats = self.df.groupby('group')['value'].agg(['mean', 'std']).reset_index()
+
+            # 그래프 그리기
+            fig, ax = plt.subplots()
+            ax.bar(group_stats['group'], group_stats['mean'], yerr=group_stats['std'], capsize=5)
+            ax.set_ylabel('Value')
+            ax.set_title('Mean and Standard Deviation of Value by Group')
+            plt.show()
         else:
-            # group 컬럼이 없는 경우, 단일 그룹으로 처리
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.barplot(x=np.repeat('Sample', len(self.df)), y='value', data=self.df, estimator=estimator, ci='sd', ax=ax)
-        
-        # 제목
-        if title:
-            plt.title(title)
-        
-        plt.show()
+            raise ValueError("single_sample_test require 'value' column\nindependent_samples_test require 'group' & 'value' columns\npaired_samples_test require 'before' & 'after' columns")
+
 
 
 # In[12]:
 
 '''
 # 예시 데이터
-data = {
+data1 = {
     'group': ['A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B'],
     'value': [2.3, 3.1, 2.9, 2.6, 2.7, 3.8, 4.0, 3.5, 4.2, 3.7]
 }
 
-df = pd.DataFrame(data)
+df1 = pd.DataFrame(data1)
 
-meantest = MeanTest(df)
-results = meantest.independent_samples_test()
+test = meantest(df1)
+test.independent_samples_test()
+test.bar_plot()
 
-for result in results:
-    print(result)
+# 예시 데이터프레임 생성
+data2 = {
+    'before': [5, 7, 8, 6, 9, 5, 10, 6, 7, 8],
+    'after': [6, 8, 9, 7, 10, 6, 11, 7, 8, 9]
+}
 
-meantest.bar_plot()
+df2 = pd.DataFrame(data2)
+test = meantest(df2)
+test.paired_samples_test()
+test.bar_plot()
+
+
+# 예시 데이터프레임 생성
+data3 = {
+    'value': [4.7, 5.1, 5.3, 4.8, 5.2, 4.9, 5.0, 5.4, 4.8, 5.1]
+}
+
+df3 = pd.DataFrame(data3)
+test = meantest(df3)
+test.single_sample_test(5)
+test.bar_plot()
 
 '''

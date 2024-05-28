@@ -19,6 +19,12 @@ class ChiSquareTest:
         self.df = df
 
     def goodness_of_fit_test(self, expected_counts):
+        columns = list(self.df.columns)
+
+        # df 구조 검사
+        if len(columns) != 1 or columns[0] != 'value':
+            raise ValueError("The 'value' column is required")
+        
         results = []
 
         # 관측 빈도 계산
@@ -45,13 +51,14 @@ class ChiSquareTest:
         return chi2_stat, chi2_pvalue
 
     def independence_test(self):
-        results = []
+        columns = list(self.df.columns)
 
-        # count 열이 있는지 여부에 따라 교차표 생성 방식 변경
-        if 'count' in self.df.columns:
-            crosstab = pd.crosstab(self.df['group'], self.df['value'], values=self.df['count'], aggfunc='sum').fillna(0)
-        else:
-            crosstab = pd.crosstab(self.df['group'], self.df['value'])
+        # df 구조 검사
+        if len(columns) != 2 or set(columns) != {'group', 'value'}:
+            raise ValueError("The 'group' and 'value' columns are required")
+
+        results = []
+        crosstab = pd.crosstab(self.df['group'], self.df['value'])
 
         # Title
         results.append("<Independence Test>\n----------")
@@ -84,13 +91,14 @@ class ChiSquareTest:
         return statistic, pvalue
     
     def mcnemar_test(self):
-        results = []
+        columns = self.df.columns
 
-        # count 열이 있는지 여부에 따라 교차표 생성 방식 변경
-        if 'count' in self.df.columns:
-            crosstab = pd.crosstab(self.df['before'], self.df['after'], values=self.df['count'], aggfunc='sum').fillna(0)
-        else:
-            crosstab = pd.crosstab(self.df['before'], self.df['after'])
+        # df 구조 검사
+        if len(columns) != 2 or set(columns) != {'before', 'after'}:
+            raise ValueError("The 'before' and 'after' columns are required")
+        
+        results = []
+        crosstab = pd.crosstab(self.df['before'], self.df['after'])
 
         # Title
         results.append("<McNemar Test>\n----------")
@@ -129,20 +137,55 @@ class ChiSquareTest:
         
         return statistic, pvalue
 
-    def bar_plot(self, title=None):
-        # group 컬럼이 존재하는지 확인
-        if 'group' in self.df.columns:
-            # 막대 그래프
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.countplot(x='group', hue='value', data=self.df, ax=ax)
+    def bar_plot(self):
+        columns = self.df.columns
+
+        if len(columns) == 1 and columns[0] == 'value':
+            # Calculate observed frequencies
+            observed_freq = self.df['value'].value_counts().sort_index()
+
+            # Extract unique values
+            unique_values = observed_freq.index
+
+            # Calculate expected frequencies (assuming provided probabilities)
+            expected_probabilities = [0.2, 0.3, 0.3, 0.2]  # Adjust this part as needed
+            expected_freq = np.array(expected_probabilities) * len(self.df)
+
+            fig, ax = plt.subplots(figsize=(10, 6))
+            sns.barplot(x=unique_values, y=observed_freq.values, color='blue', alpha=0.6, label='Observed')
+            sns.barplot(x=unique_values, y=expected_freq, color='red', alpha=0.6, label='Expected')
+
+            # Plot settings
+            ax.set_title('Goodness of Fit Test: Observed vs Expected Frequencies')
+            ax.set_xlabel('Value')
+            ax.set_ylabel('Frequency')
+            ax.legend(title='Legend')
+
+            plt.show()
+
+        elif len(columns) == 2 and set(columns) == {'before', 'after'}:
+            # Create crosstab
+            crosstab = pd.crosstab(self.df['before'], self.df['after'])
+
+            # Create heatmap
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(crosstab, annot=True, cmap="YlGnBu", cbar=False)
+            plt.title('McNemar Test Contingency Table')
+            plt.xlabel('After')
+            plt.ylabel('Before')
+            plt.show()
+
+        elif len(columns) == 2 and set(columns) == {'group', 'value'}:
+            # Create count plot
+            plt.figure(figsize=(10, 6))
+            sns.countplot(data=self.df, x='group', hue='value')
+            plt.title('Count Plot of Values by Group')  # Fixed here
+            plt.xlabel('Group')
+            plt.ylabel('Count')
+            plt.legend(title='Value')
+            plt.show()
         else:
-            raise ValueError("The dataframe must contain a 'group' column.")
-        
-        # 제목
-        if title:
-            plt.title(title)
-        
-        plt.show()
+            raise ValueError("single_sample_test requires 'value' column\nindependent_samples_test requires 'group' & 'value' columns\npaired_samples_test requires 'before' & 'after' columns")
 
 
 # In[24]:
@@ -154,30 +197,25 @@ data1 = {
     'value': ['yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no']
 }
 
+df = pd.DataFrame(data1)
+test = ChiSquareTest(df)
+statistic, pvalue = test.independence_test()
+test.bar_plot()
+
+
 data2 = {
-    'group': ['이번달', '이번달', '지난달', '지난달'],
-    'value': ['회사판매', '나머지시장', '회사판매', '나머지시장'],
-    'count': [257, 1200, 242, 1250]
+    'before': [1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+    'after': [1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1]
 }
 
-df = pd.DataFrame(data1)
-
-chi_square_test = ChiSquareTest(df)
-
-statistic, pvalue = chi_square_test.independence_test()
-chi_square_test.bar_plot()
-
 df2 = pd.DataFrame(data2)
-
-chi_square_test = ChiSquareTest(df2)
-
-statistic, pvalue = chi_square_test.independence_test()
-chi_square_test.bar_plot()
+test = ChiSquareTest(df2)
+statistic, pvalue = test.mcnemar_test()
+test.bar_plot()
 
 
 # 예시 데이터3
-df = pd.DataFrame({
-    'group': ['A']*100,
+df3 = pd.DataFrame({
     'value': np.random.choice([1, 2, 3, 4], size=100, p=[0.2, 0.3, 0.3, 0.2])
 })
 
@@ -185,7 +223,7 @@ df = pd.DataFrame({
 expected_counts = [20, 30, 30, 20]
 
 # 테스트 실행
-test = ChiSquareTest(df)
+test = ChiSquareTest(df3)
 chi2_stat, chi2_pvalue = test.goodness_of_fit_test(expected_counts)
 test.bar_plot()
 '''
