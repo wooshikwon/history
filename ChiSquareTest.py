@@ -27,6 +27,8 @@ class ChiSquareTest:
         # 기대 빈도와 관측 빈도의 길이 일치 확인
         if len(observed_counts) != len(expected_counts):
             raise ValueError("The length of observed counts and expected counts must be the same.")
+        
+        results.append("<Goodness of Fit Test>\n----------")
 
         # 카이제곱 통계량 계산
         chi2_stat, chi2_pvalue = stats.chisquare(f_obs=observed_counts, f_exp=expected_counts)
@@ -34,7 +36,7 @@ class ChiSquareTest:
         # 결과 추가
         results.append(f"Observed counts: {observed_counts.tolist()}")
         results.append(f"Expected counts: {expected_counts}")
-        results.append(f"----------\nResult (Chi-Square Goodness of Fit Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}")
+        results.append(f"----------\nResult (Chi-Square Goodness of Fit Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}\n")
 
         # 결과 출력
         for result in results:
@@ -46,6 +48,9 @@ class ChiSquareTest:
         results = []
 
         crosstab = pd.crosstab(self.df['group'], self.df['value'])
+
+        # Title
+        results.append("<Independence Test>\n----------")
         
         # 기대 빈도 계산
         chi2_stat, chi2_pvalue, dof, expected = stats.chi2_contingency(crosstab)
@@ -56,7 +61,7 @@ class ChiSquareTest:
             results.append(expected)
             if crosstab.shape == (2, 2):  # 피셔의 정확 검정은 2x2 표에서만 사용 가능
                 fisher_stat, fisher_pvalue = stats.fisher_exact(crosstab)
-                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - Statistic: {fisher_stat:.4f}, p-value: {fisher_pvalue:.4f}")
+                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - Statistic: {fisher_stat:.4f}, p-value: {fisher_pvalue:.4f}\n")
                 statistic = fisher_stat
                 pvalue = fisher_pvalue
 
@@ -65,7 +70,7 @@ class ChiSquareTest:
         else:
             # 기대 빈도가 모두 5 이상인 경우 카이제곱 검정 사용
             results.append(expected)
-            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}")
+            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}\n")
             statistic = chi2_stat
             pvalue = chi2_pvalue
 

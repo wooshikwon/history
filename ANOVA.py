@@ -28,9 +28,24 @@ class anova:
     def oneway_anova(self):
         results = []
 
+        factor_cols = [col for col in self.df.columns if col != 'value']
+        
+        if len(factor_cols) != 1:
+            raise TypeError("One-way ANOVA require single factor.")
+
         # 각 그룹별로 데이터를 추출
         groups = self.df['group'].unique()
         group_data = [self.df[self.df['group'] == group]['value'] for group in groups]
+
+        mean_list = []
+        for i in range(len(groups)):
+            mean_list.append(f"{groups[i]}({group_data[i].mean().round(2)})")
+        
+        temp = " - ".join(mean_list) + "\n----------"
+
+        # Title
+        results.append("<One-way ANOVA>\n----------")
+        results.append(temp)
 
         # 정규성 검정 (Shapiro-Wilk Test)
         normality = True
@@ -53,14 +68,14 @@ class anova:
             # ANOVA 수행
             model = ols('value ~ C(group)', data=self.df).fit()
             anova_result = sm.stats.anova_lm(model, typ=2)
-            results.append("----------\nPrior Test - Normality O / Equal Variance O\nResult(ANOVA):\n{}".format(anova_result))
+            results.append(f"----------\nPrior Test - Normality O / Equal Variance O\nResult(ANOVA):\n{anova_result}\n")
             # p-value와 F-통계량 추출
             statistic = anova_result.loc['C(group)', 'F']
             pvalue = anova_result.loc['C(group)','PR(>F)']
         else:
             # Kruskal-Wallis H 검정 수행
             kruskal_test = stats.kruskal(*group_data)
-            results.append("----------\nPrior Test - Normality X or Equal Variance X\nResult(Kruskal-Wallis H test) - Statistic: {:.4f}, p-value: {:.4f}".format(kruskal_test.statistic, kruskal_test.pvalue))
+            results.append(f"----------\nPrior Test - Normality X or Equal Variance X\nResult(Kruskal-Wallis H test) - Statistic: {kruskal_test.statistic:.4f}, p-value: {kruskal_test.pvalue:.4f}\n")
             statistic = kruskal_test.statistic
             pvalue = kruskal_test.pvalue
         
@@ -72,6 +87,11 @@ class anova:
     def twoway_anova(self):
         results = []
 
+        factor_cols = [col for col in self.df.columns if col != 'value']
+        
+        if len(factor_cols) != 2:
+            raise TypeError("two-way ANOVA require two factors.")
+
         # 각 그룹별로 데이터를 추출
         groups1 = self.df['factor1'].unique()
         groups2 = self.df['factor2'].unique()
@@ -81,6 +101,16 @@ class anova:
         for g1 in groups1:
             for g2 in groups2:
                 group_data[(g1, g2)] = self.df[(self.df['factor1'] == g1) & (self.df['factor2'] == g2)]['value']
+
+        mean_list = []
+        for (k1, k2), v in group_data.items():
+            mean_list.append(f"{k1, k2}:{v.mean().round(2)}")
+        
+        temp = " - ".join(mean_list) + "\n----------"
+
+        # Title
+        results.append("<One-way ANOVA>")
+        results.append(temp)
 
         normality = True
         for (k1, k2), v in group_data.items():
@@ -102,7 +132,7 @@ class anova:
             # Two-way ANOVA 수행
             model = ols('value ~ C(factor1) * C(factor2)', data=self.df).fit()
             anova_result = sm.stats.anova_lm(model, typ=2)
-            results.append(f"----------\nPrior Test - Normality O / Equal Variance O\nResult(Two-way ANOVA):\n{anova_result}")
+            results.append(f"----------\nPrior Test - Normality O / Equal Variance O\nResult(Two-way ANOVA):\n{anova_result}\n")
             statistic = anova_result['F']
             pvalue = anova_result['PR(>F)']
         else:
@@ -110,7 +140,7 @@ class anova:
             # 데이터를 넓은 형식으로 변환 (wide format)
             df_wide = self.df.pivot(index='factor1', columns='factor2', values='value')
             friedman_test = stats.friedmanchisquare(*[df_wide[col].dropna() for col in df_wide])
-            results.append("----------\nPrior Test - Normality X or Equal Variance X\nResult(Friedman Test) - Statistic: {:.4f}, p-value: {:.4f}".format(friedman_test.statistic, friedman_test.pvalue))
+            results.append(f"----------\nPrior Test - Normality X or Equal Variance X\nResult(Friedman Test) - Statistic: {friedman_test.statistic:.4f}, p-value: {friedman_test.pvalue:.4f}\n")
             statistic = friedman_test.statistic
             pvalue = friedman_test.pvalue
         
