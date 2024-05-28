@@ -55,6 +55,7 @@ class ChiSquareTest:
 
         # Title
         results.append("<Independence Test>\n----------")
+        results.append(crosstab)
         
         # 기대 빈도 계산
         chi2_stat, chi2_pvalue, dof, expected = stats.chi2_contingency(crosstab)
@@ -62,21 +63,65 @@ class ChiSquareTest:
         # 기대 빈도가 5 미만인 셀 확인
         if np.any(expected < 5):
             # 기대 빈도가 5 미만인 경우 피셔의 정확 검정 사용
-            results.append(expected)
             if crosstab.shape == (2, 2):  # 피셔의 정확 검정은 2x2 표에서만 사용 가능
-                fisher_stat, fisher_pvalue = stats.fisher_exact(crosstab)
-                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - Statistic: {fisher_stat:.4f}, p-value: {fisher_pvalue:.4f}\n")
-                statistic = fisher_stat
+                _, fisher_pvalue = stats.fisher_exact(crosstab)
+                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - p-value: {fisher_pvalue:.4f}\n")
+                statistic = None
                 pvalue = fisher_pvalue
 
             else:
                 results.append("Fisher's Exact Test is not applicable for tables larger than 2x2.")
         else:
             # 기대 빈도가 모두 5 이상인 경우 카이제곱 검정 사용
-            results.append(expected)
-            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Chi2 Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}\n")
+            results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (Chi-Square Test) - Statistic: {chi2_stat:.4f}, p-value: {chi2_pvalue:.4f}\n")
             statistic = chi2_stat
             pvalue = chi2_pvalue
+
+        # 결과 출력
+        for result in results:
+            print(result)
+        
+        return statistic, pvalue
+    
+    def mcnemar_test(self):
+        results = []
+
+        # count 열이 있는지 여부에 따라 교차표 생성 방식 변경
+        if 'count' in self.df.columns:
+            crosstab = pd.crosstab(self.df['before'], self.df['after'], values=self.df['count'], aggfunc='sum').fillna(0)
+        else:
+            crosstab = pd.crosstab(self.df['before'], self.df['after'])
+
+        # Title
+        results.append("<McNemar Test>\n----------")
+        results.append(crosstab)
+        
+        # 교차표가 2x2인지 확인
+        if crosstab.shape == (2, 2):
+            b = crosstab.iloc[0, 1]
+            c = crosstab.iloc[1, 0]
+
+            # 기대 빈도 계산
+            expected_b = (b + c) / 2
+            expected_c = (b + c) / 2
+
+            # 기대 빈도가 5 미만인 셀이 있는지 확인
+            if expected_b < 5 or expected_c < 5:
+                # 피셔의 정확 검정 사용
+                _, pvalue = stats.fisher_exact(crosstab)
+                results.append(f"----------\nPrior Test - f<5 in at least one cell\nResult (Fisher's Exact Test) - p-value: {pvalue:.4f}\n")
+                statistic = None  # 피셔의 정확 검정에서는 검정 통계량이 없음
+            else:
+                # McNemar 통계량 계산
+                mcnemar_stat = (abs(b - c) - 1)**2 / (b + c)
+                pvalue = stats.chi2.sf(mcnemar_stat, 1)
+                
+                results.append(f"----------\nPrior Test - f>=5 in all cells\nResult (McNemar Test) - Statistic: {mcnemar_stat:.4f}, p-value: {pvalue:.4f}\n")
+                statistic = mcnemar_stat
+        else:
+            results.append("McNemar Test is only applicable for 2x2 tables.\n")
+            statistic = None
+            pvalue = None
 
         # 결과 출력
         for result in results:
@@ -111,7 +156,7 @@ data1 = {
 
 data2 = {
     'group': ['이번달', '이번달', '지난달', '지난달'],
-    'value': ['회사판매', '시장전체', '회사판매', '시장전체'],
+    'value': ['회사판매', '나머지시장', '회사판매', '나머지시장'],
     'count': [257, 1200, 242, 1250]
 }
 
