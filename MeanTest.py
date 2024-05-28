@@ -128,7 +128,7 @@ class meantest:
         results.append(f"Step1(Shapiro-Wilk for {group1}) - Statistic: {shapiro_group1.statistic:.4f}, p-value: {shapiro_group1.pvalue:.4f}")
         results.append(f"Step1(Shapiro-Wilk for {group2}) - Statistic: {shapiro_group2.statistic:.4f}, p-value: {shapiro_group2.pvalue:.4f}")
         
-        if (shapiro_group1.pvalue < 0.05 or shapiro_group2.pvalue < 0.05) and (len(group1) < 30 or len(group2) < 30):
+        if (shapiro_group1.pvalue < 0.05 or shapiro_group2.pvalue < 0.05) and (len(group1_value) < 30 or len(group2_value) < 30):
             # 정규성 검정을 만족하지 못하고 표본 크기가 30 미만인 경우
             mann_whitney_u_test = stats.mannwhitneyu(group1_value, group2_value)
             results.append(f"----------\nPrior Test - Normality X\nResult(Mann-Whitney U test) - Statistic: {mann_whitney_u_test.statistic:.4f}, p-value: {mann_whitney_u_test.pvalue:.4f}\n")
