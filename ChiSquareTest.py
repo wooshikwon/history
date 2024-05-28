@@ -47,7 +47,11 @@ class ChiSquareTest:
     def independence_test(self):
         results = []
 
-        crosstab = pd.crosstab(self.df['group'], self.df['value'])
+        # count 열이 있는지 여부에 따라 교차표 생성 방식 변경
+        if 'count' in self.df.columns:
+            crosstab = pd.crosstab(self.df['group'], self.df['value'], values=self.df['count'], aggfunc='sum').fillna(0)
+        else:
+            crosstab = pd.crosstab(self.df['group'], self.df['value'])
 
         # Title
         results.append("<Independence Test>\n----------")
@@ -100,21 +104,33 @@ class ChiSquareTest:
 
 # 예시 데이터
 '''
-data = {
+data1 = {
     'group': ['A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'A', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B', 'B'],
     'value': ['yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no', 'no', 'yes', 'no', 'yes', 'no']
 }
 
-df = pd.DataFrame(data)
+data2 = {
+    'group': ['이번달', '이번달', '지난달', '지난달'],
+    'value': ['회사판매', '시장전체', '회사판매', '시장전체'],
+    'count': [257, 1200, 242, 1250]
+}
+
+df = pd.DataFrame(data1)
 
 chi_square_test = ChiSquareTest(df)
 
 statistic, pvalue = chi_square_test.independence_test()
 chi_square_test.bar_plot()
 
+df2 = pd.DataFrame(data2)
+
+chi_square_test = ChiSquareTest(df2)
+
+statistic, pvalue = chi_square_test.independence_test()
+chi_square_test.bar_plot()
 
 
-# 예시 데이터2
+# 예시 데이터3
 df = pd.DataFrame({
     'group': ['A']*100,
     'value': np.random.choice([1, 2, 3, 4], size=100, p=[0.2, 0.3, 0.3, 0.2])
